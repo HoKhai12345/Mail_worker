@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "New Profile",
+    "Projects": [
+      {
+        "Path": "MailWorkerService\\MailWorkerService.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "..\\NET_MVC\\NET_MVC\\NET_MVC.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

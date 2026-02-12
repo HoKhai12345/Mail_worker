@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../NET_MVC/NET_MVC/NET_MVC.csproj" />
+  <Project Path="MailWorkerService/MailWorkerService.csproj" />
+</Solution>
