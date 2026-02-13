@@ -11,6 +11,8 @@ namespace MailWorkerService
     {
         public string Email { get; set; }
         public string Username { get; set; }
+
+        public string Otp { get; set; } // Trường mới để nhận mã 6 số
     }
     public class Worker : BackgroundService
     {
@@ -61,19 +63,26 @@ namespace MailWorkerService
             consumer.Received += (model, ea) =>
             {
                 var body = ea.Body.ToArray();
-                var message = Encoding.UTF8.GetString(body);
-
-                _logger.LogInformation(" [x] Đã nhận tin nhắn: {0}", message);
-
+                var messageStr = Encoding.UTF8.GetString(body);
                 // GỌI HÀM GỬI MAIL Ở ĐÂY
                 try
                 {
-                    var userData = JsonSerializer.Deserialize<UserMailTask>(message);
-                    SendEmail(userData.Email, userData.Username);
+                    // Giải mã JSON sang khuôn UserMailTask
+                    var task = JsonSerializer.Deserialize<UserMailTask>(messageStr);
+
+                    if (task != null)
+                    {
+                        _logger.LogInformation($"[Worker] Đang gửi mã OTP: {task.Otp} tới Email: {task.Email}");
+
+                        // Gửi Mail
+                        SendOtpEmail(task.Email, task.Username, task.Otp);
+
+                        _logger.LogInformation("[Worker] Đã gửi mail thành công!");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError("Lỗi xử lý: " + ex.Message);
+                    _logger.LogError($"[Worker] Lỗi xử lý tin nhắn: {ex.Message}");
                 }
             };
 
@@ -83,6 +92,38 @@ namespace MailWorkerService
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(1000, stoppingToken);
+            }
+        }
+
+        private void SendOtpEmail(string toEmail, string username, string otp)
+        {
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress("Hệ Thống Xác Thực", "0917388156ab@gmail.com"));
+            message.To.Add(new MailboxAddress(username, toEmail));
+            message.Subject = $"{otp} là mã xác nhận tài khoản của bạn";
+
+            // Tạo nội dung HTML cho email
+            var bodyBuilder = new BodyBuilder();
+            bodyBuilder.HtmlBody = $@"
+        <div style='font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; padding: 20px;'>
+            <h2 style='color: #007bff;'>Chào mừng {username}!</h2>
+            <p>Cảm ơn bạn đã đăng ký tài khoản. Để hoàn tất việc kích hoạt, vui lòng sử dụng mã OTP dưới đây:</p>
+            <div style='background: #f4f4f4; padding: 15px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #333;'>
+                {otp}
+            </div>
+            <p style='margin-top: 20px;'>Mã này có hiệu lực trong vòng 5 phút. Nếu không phải bạn thực hiện yêu cầu này, hãy bỏ qua email này.</p>
+            <hr>
+            <small style='color: #888;'>Đây là email tự động, vui lòng không phản hồi.</small>
+        </div>";
+
+            message.Body = bodyBuilder.ToMessageBody();
+
+            using (var client = new SmtpClient())
+            {
+                client.Connect("smtp.gmail.com", 587, MailKit.Security.SecureSocketOptions.StartTls);
+                client.Authenticate("0917388156ab@gmail.com", "czqh jhor nphv ujoz");
+                client.Send(message);
+                client.Disconnect(true);
             }
         }
     }
